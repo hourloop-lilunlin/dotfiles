@@ -1,19 +1,21 @@
 #!/usr/bin/env bash
 
 pkgs=(
-    bat
-    eza
-    fd
-    fzf
-    git
-    git
-    git-delta
-    neovim
-    ripgrep
-    stow
-    tmux
-    zoxide
-    zsh
+    nixpkgs.bat
+    nixpkgs.delta
+    nixpkgs.eza
+    nixpkgs.fd
+    nixpkgs.fzf
+    nixpkgs.git
+    nixpkgs.lazygit
+    nixpkgs.lazydocker
+    nixpkgs.neovim
+    nixpkgs.ripgrep
+    nixpkgs.stow
+    nixpkgs.tmux
+    nixpkgs.yq-go
+    nixpkgs.zoxide
+    nixpkgs.zsh
 )
 
 BLACK='\033[0;30m'
@@ -21,7 +23,7 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m'
 
-DOTFILES="$HOME/.dotfiles"
+DOTFILES="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
 
 info() {
     if [ "$dry_run" = "1" ]; then
@@ -39,26 +41,26 @@ error() {
     fi
 }
 
-check_os() {
-    case "$(echo $ID | awk '{ print tolower($0) }')" in
-        "arch") info "OS detected: Arch Linux" ;;
-        "ubuntu") info "OS detected: Ubuntu" ;;
-        *)
-            error "Unsupported OS '$ID'"
-            exit 1
-    esac
-}
-
 install() {
-    info "Installing packages ($(echo $@))"
+    info "Installing userland packages with nix"
     if [ "$dry_run" = "1" ]; then
         return
     fi
 
-    case "$(echo $ID | awk '{ print tolower($0) }')" in
-        "arch") sudo pacman -S "$@" ;;
-        "ubuntu") sudo apt install "$@" ;;
-    esac
+    {
+        export USER="$(id -u -n)"
+
+        if test ! -e /nix; then
+            sudo sh -c "mkdir -p /nix && chown -R $USER:$USER /nix"
+            info "Installing nix"
+            curl -sL https://nixos.org/nix/install | bash -s -- --no-daemon > /dev/null 2>&1
+        fi
+
+        info "Installing packages ($(echo $@))"
+        command nix-env -iAP "$@" 2>&1 \
+            | grep --line-buffered -vE '^(copying|building|generating|  /nix/store|these|this path will be fetched)'
+    } & disown
+
 }
 
 if [ "$1" = "--dry" ]; then
@@ -71,11 +73,6 @@ main() {
     check_os
 
     install "${pkgs[@]}"
-
-    info "Cloning repository to '$DOTFILES'"
-    if ! [ "$dry_run" = "1" ]; then
-        git clone https://github.com/alan910127/dotfiles.git "$DOTFILES"
-    fi
 
     info "Stowing '$DOTFILES/home' to '$HOME'"
     if ! [ "$dry_run" = "1" ]; then
