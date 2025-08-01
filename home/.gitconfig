@@ -9,7 +9,7 @@
 [interactive]
     diffFilter = delta --color-only
 [include]
-    path = ~/.dotfiles/delta/catppuccin.gitconfig
+    path = ~/.config/delta/catppuccin.gitconfig
 [delta]
     navigate = true
     features = catppuccin-mocha
